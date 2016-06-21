@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+
+<!-- Author : Dinesh Barupal (dinkumar@ucdavis.edu) Metabolomics FiehnLab UCDavis, 2016-->
+ 
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>ChemIDConvert</title>
+    <link href="bootstrap.css" rel="stylesheet">
+	<style type="text/css">
+      body {
+        padding-top: 45px;
+		background-color:#FAFAFA;
+        padding-bottom: 40px;
+      }
+     
+    </style>
+	
+	
+ </head>
+
+<body>
+
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container-fluid">
+          <a class="brand" href="#" style="color:white;">ChemIDConvert : PubChem PUG-REST based chemical identifiers conversion tool</a>
+          
+        </div>
+      </div>
+    </div>
+<div id= "maindiv">
+
+	<div class="container-fluid btn-info" style="padding:15px">
+				<div class="row-fluid" >		  
+				<div class="span3 btn">			
+									<p style= "font-size:110%;"> Input the list of Chemical names or IDs </p>
+									<textarea id="synms" rows="8"></textarea>	<br>
+									<p>Select type of Identifiers</p> 
+									<select id="typeofid">
+									   <option>Names</option>
+									  <option>PubChem CID</option>
+									  <option>InChiKey</option>
+									  <option>Other IDs</option>
+									</select> <br>
+									<p>Select Database</p> 
+									<select id="pcdatabase">
+									   <option>PubChem Compound</option>
+									  <option>PubChem Substance</option>
+									</select> <br>
+									<button id= "clicked_name" type="button" class="btn btn-primary">Search</button>									
+						
+				</div><!--/span-->
+			
+				<div class="span9 btn" style="text-align:left;line-height: 180%" >
+										
+							<p style="font-size:110%;"> For reporting of metabolites in metabolomics and chemo-informatics research, it is important to use database identifiers that would allow post-statistics bio-informatics analyses such as pathway and network mapping tools such as NCBI Biosystems and MetaMapp. New tools are needed to enable the conversion of different IDs and names to useful identifiers for metabolomics research. ChemIDConvert converts chemical names and different databases IDs (see <a href="https://pubchem.ncbi.nlm.nih.gov/sources/sources.cgi">PubChem sources</a> for more details) to PubChem, HMDB, KEGG and CAS registry identifiers by utilizing the <a href="https://pubchem.ncbi.nlm.nih.gov/pug_rest/PUG_REST.html">PubChem PUG-REST service</a>. It can allow fast conversion of upto 1000 identifiers. Other useful ID conversion tools for metabolomics are <a href="https://www.msea.ca/" >MSEA</a>, <a href="https://csbg.cnb.csic.es/mbrole/" >MBRole</a>  and  <a href="https://cts.fiehnlab.ucdavis.edu">CTS</a>. On contrast to these tools, ChemIDConvert does not require a local installation and maintenance of a local database, and its relies solely on PubChem PUG-REST and NCBI Entrez APIs to retrieve the content. It would also provide NCBI BioSystems Hits that can rank the identifiers useful for pathway and network mapping. NOTE: NCBI imposes domain specific limits for using their web-services. It is better to download the webpage and run on your laptop/desktop for long list of metabolites.
+							</p> 
+				
+				</div>
+			</div>		
+	</div>
+<div id ="toolmenus" class="navbar navbar-inner" style="text-align:right">
+		<button id="ExportTable" class="btn btn-success " >Export Results to TSV</button>
+		<a id="exporttablebut" class= "btn btn-success" >Result Download</a>
+		</div>
+	<div class="container-fluid">
+	<div class="container-fluid">
+		<div class="row-fluid">
+			<div id = "someElement" class="span12" style ='border: 0px solid #000;-moz-border-radius:5px; -webkit-border-radius: 10px;'>
+				
+				<table id="results" class="table table-bordered" style="font-size :85%;">
+              <thead>
+                <tr>
+                  <th>Query Term</th>
+				  <th>PubChem CID</th>
+				  <th>InChiKey</th>
+				  <th>Molecular Formula</th>
+				  <th>MonoIsoTopicMass</th>
+				  <th>Top 3 Synonyms in PubChem</th>
+				  <th>KEGG ID</th>
+                  <th>HMDB ID</th>
+				  <th>CAS Numbers</th>
+				  <th>NCBI BioSystems Hits (Humans)</th>
+				  <th>MESH Annotation</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+              </tbody>
+            </table>
+			  
+			</div> <!--/span-->			
+		</div>
+	</div>
+
+</div>
+ 
+<div class="navbar navbar-inverse navbar-fixed-bottom">
+	<div class="navbar-inner" style="background:#333333;">
+		<a href="#" id="popover1" class="btn btn-success pull-right" data-toggle="popover" data-placement="top" data-content="Dinesh K Barupal : dinkumar@ucdavis.edu." title="" data-original-title="Contant">Citation and contact</a>
+	<ul id="notfound"> </ul>
+  </div>
+</div>  
+ 
+<script src="jquery-1.10.2.js"></script>
+<script src="underscore.js"></script>
+<script src="bootstrap.js"></script>
+<script src="jquery-ui.js"></script>
+<script> 
+$("#popover1").popover();
+
+var idconvert = function(query) {
+		
+		var ion = query;
+		var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/"+ion+"/synonyms/JSON";
+			$.getJSON(synjson) 
+			.success( function (json) {			
+				$.each(json.InformationList.Information, function (k, i) {									
+					var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);
+													
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});
+					
+					var urlmesh = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pccompound&db=mesh&id='+i.CID;					
+					
+					$.get(urlmesh, function(xmlmesh) {
+						$IdList = $(xmlmesh).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						var urlmeshlink = 'https://www.ncbi.nlm.nih.gov/mesh/'+stringy[1];
+						$("#results").find('#mesh'+cidbis).html('<a href="'+urlmeshlink+'" target="_blank">'+stringy[1]+'</a>'); 
+					});
+					
+					
+				});
+			})
+			.error ( function () {
+					var url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/cids/XML?list_return=flat";
+					var url1 = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pccompound&term="'+ion+'"[CSYN]'
+					$.get(url1, function(xml) {
+					$IdList = $(xml).find( "Id" );
+					var stringx = $IdList.map(function() {return $(this).text();}).toArray();
+					var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+stringx+"/synonyms/JSON";
+					$.getJSON(synjson) 
+						.success( function (json) {			
+							$.each(json.InformationList.Information, function (k, i) {									
+								var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});	
+							});
+						})
+					.error ( function () {$('#results').find('tbody').append('<tr><td>'+ion+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');}); 
+					});	
+				}
+			); 
+	}
+	
+var idconvertCID = function(query) {
+		var ion = query;
+		var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+ion+"/synonyms/JSON";
+		var synjsonSub = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/synonyms/JSON";
+			$.getJSON(synjson) 
+			.success( function (json) {
+			
+				$.each(json.InformationList.Information, function (k, i) {									
+					var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});
+				});
+					
+			})
+			.error ( function () {
+					
+					var url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/cids/XML?list_return=flat";
+					var url1 = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pccompound&term="'+ion+'"[CSYN]'
+					$.get(url1, function(xml) {
+					$IdList = $(xml).find( "Id" );
+					var stringx = $IdList.map(function() {return $(this).text();}).toArray();
+					var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+stringx+"/synonyms/JSON";
+					$.getJSON(synjson) 
+						.success( function (json) {			
+							$.each(json.InformationList.Information, function (k, i) {									
+								var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);	
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);						
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});	
+							});
+						})
+					.error ( function () {$('#results').find('tbody').append('<tr><td>'+ion+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');}); 
+					});	
+			}
+			); 
+	}
+	
+var idconvertSID = function(query) {
+		var ion = query;
+		var synjsonSub = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/cids/JSON";
+		$.getJSON(synjsonSub) 
+			.success( function (json) {	
+				var cidlist = _.uniq(json.InformationList.Information.map(function(i) {return i.CID}).join(",").split(",")).join(",");
+				var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+cidlist+"/synonyms/JSON";
+			
+				$.getJSON(synjson) 
+					.success( function (json1) {
+										
+							$.each(json1.InformationList.Information, function (k, i) {									
+							var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+							var hmdbregex = /^HMDB\d+$/;
+							var keggregex = /^C\d{5}$/;
+							var casregex = /^\d+-\d+-\d+$/g;
+							var hmdbid = 	$.grep(i.Synonym, function(value){  
+												return (value.match(hmdbregex));
+											});	
+							var keggid = 	$.grep(i.Synonym, function(value){ 
+												return (value.match(keggregex));
+											});
+							var casid = 	$.grep(i.Synonym, function(value){ 
+												return (value.match(casregex));
+											});
+							var topthree = i.Synonym.slice(0,1);				
+							var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+							var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+							var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+							var cidbis = "cidbis"+i.CID;
+							var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+							var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+							var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+							var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+							$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+							
+							$.getJSON(urlinchikey) 
+									.success( function (ikjson) {
+									$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+									$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+									$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);						
+									});
+							$.get(urlbiosys, function(xmlcid) {
+								$IdList = $(xmlcid).find( "Id" );
+								var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+								$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+							});
+						});
+					})	
+			})
+			.error ( function () {
+					
+					var url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/cids/XML?list_return=flat";
+					var url1 = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pccompound&term="'+ion+'"[CSYN]'
+					$.get(url1, function(xml) {
+					$IdList = $(xml).find( "Id" );
+					var stringx = $IdList.map(function() {return $(this).text();}).toArray();
+					var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+stringx+"/synonyms/JSON";
+					$.getJSON(synjson) 
+						.success( function (json) {			
+							$.each(json.InformationList.Information, function (k, i) {									
+								var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});	
+							});
+						})
+					.error ( function () {$('#results').find('tbody').append('<tr><td>'+ion+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');}); 
+								
+					});	
+			}
+			); 
+	}
+
+var idconvertInchi = function(query) {
+		var ion = query;
+		var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/"+ion+"/synonyms/JSON";
+			$.getJSON(synjson) 
+			.success( function (json) {
+			
+				$.each(json.InformationList.Information, function (k, i) {									
+					var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);							
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});
+				});
+					
+			})
+			.error ( function () {
+					
+					var url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/substance/name/"+ion+"/cids/XML?list_return=flat";
+					var url1 = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pccompound&term="'+ion+'"[CSYN]'
+					$.get(url1, function(xml) {
+					$IdList = $(xml).find( "Id" );
+					var stringx = $IdList.map(function() {return $(this).text();}).toArray();
+					var synjson = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+stringx+"/synonyms/JSON";
+					$.getJSON(synjson) 
+						.success( function (json) {			
+							$.each(json.InformationList.Information, function (k, i) {									
+								var names = i.Synonym + " ("+i.Synonym.length+ ")";	
+					var hmdbregex = /^HMDB\d+$/;
+					var keggregex = /^C\d{5}$/;
+					var casregex = /^\d+-\d+-\d+$/g;
+					var hmdbid = 	$.grep(i.Synonym, function(value){  
+										return (value.match(hmdbregex));
+									});	
+					var keggid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(keggregex));
+									});
+					var casid = 	$.grep(i.Synonym, function(value){ 
+										return (value.match(casregex));
+									});
+					var topthree = i.Synonym.slice(0,1);				
+					var img_append = ('<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/'+i.CID+'/PNG?record_type=3d&image_size=small">');
+					var urlbiosys = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosystems&term='+i.CID+'[CID] Homo Sapiens[Organism]&RetMax=1000';
+					var urlinchikey = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"+i.CID+"/property/InChIKey,MolecularFormula,MonoisotopicMass/JSON"
+					var cidbis = "cidbis"+i.CID;
+					var pcurl = "https://pubchem.ncbi.nlm.nih.gov/summary/summary.cgi?cid="+i.CID;
+					var kegglink = "https://www.genome.jp/dbget-bin/www_bget?cpd:"+keggid;
+					var hmdblink = "https://www.hmdb.ca/metabolites/" + hmdbid;
+					var bislink = "https://www.ncbi.nlm.nih.gov/biosystems/?term="+i.CID+"[CID] Homo Sapiens[Organism]";
+					$('#results').find('tbody').append('<tr><td>'+ion+'</td><td><a href="'+pcurl+'" target="_blank">'+i.CID+'</a></td><td id="inchi'+cidbis+'"></td><td id="formula'+cidbis+'"></td><td id="monomass'+cidbis+'"></td><td>'+topthree+'<a href="'+synjson+'" target="_blank">  All Synonyms</a></td><td><a href="'+kegglink+'" target="_blank">'+keggid+'</a></td><td><a href="'+hmdblink+'" target="_blank">'+hmdbid+'</a></td><td>'+casid+'</td><td id="'+cidbis+'"></td><td id="mesh'+cidbis+'"></td></tr>');
+					
+					$.getJSON(urlinchikey) 
+							.success( function (ikjson) {
+							$("#results").find('#inchi'+cidbis).html(ikjson.PropertyTable.Properties[0].InChIKey);
+							$("#results").find('#formula'+cidbis).html(ikjson.PropertyTable.Properties[0].MolecularFormula);
+							$("#results").find('#monomass'+cidbis).html(ikjson.PropertyTable.Properties[0].MonoisotopicMass);
+													
+							});
+					$.get(urlbiosys, function(xmlcid) {
+						$IdList = $(xmlcid).find( "Id" );
+						var stringy = $IdList.map(function() {return $(this).text();}).toArray();
+						$("#results").find('#'+cidbis).html('<a href="'+bislink+'" target="_blank">'+stringy.length+'</a>');
+					});	
+							});
+						})
+					.error ( function () {$('#results').find('tbody').append('<tr><td>'+ion+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');}); 
+								
+					});	
+			}
+			
+			); 
+ 
+	}
+		
+$("#clicked_name").click(function() {
+$('#results').find('tbody').empty();
+		var meto = $('#synms').val().split(/\r|\r\n|\n/);
+		if (meto.length <2000){
+		
+		if ($('#typeofid').val()=="PubChem CID") {
+			
+			$.each (meto, function (a,b) {
+				idconvertCID(b);
+			});
+		
+		} else if ($('#typeofid').val()=="InChiKey") {
+			$.each (meto, function (a,b) {
+				idconvertInchi(b);
+			});
+		} else {
+			if ($('#pcdatabase').val()=="PubChem Compound") {
+				$.each (meto, function (a,b) {
+					idconvert(b);
+				});
+				} else {
+					$.each (meto, function (a,b) {
+						idconvertSID(b);
+					});
+				}
+		
+		}
+			
+		}	else {
+		
+		alert("Too many queries, please save the webpage locally");
+		}
+		
+	return false;	<!-- prevent default is necessary to avoid the 500 internal server error. -->
+	
+	});
+
+$("#ExportTable").click(function() {
+	var table1 = $("#results").html();
+	var expcsvtable = table1.replace(/\n| |\t/g,"").replace(/<\/td>/g,"\t").replace(/<\/a>/g,"").replace(/<td>/g,"").replace(/<td[^>]*?>/g,"").replace(/<a[^>]*?>/g,"").replace(/<tbody><tr>/g,"").replace(/<\/tr><\/tbody>/g,"").replace(/<\/tr><tr>/g,"\n").replace(/<thead><tr><th>/g,"").replace(/<\/th><\/tr><\/thead>/g,"\n").replace(/<\/th><th>/g,"\t");
+	
+	var exptableuri = encodeURIComponent(expcsvtable);  <!--  If we dont declare this variable, URI component have double quotes in the CSV.  -->
+	$("#exporttablebut").remove();
+	$("#toolmenus").append('<a id="exporttablebut" class= "btn btn-danger" href=data:text/csv;charset=utf-8,' + exptableuri + ' download=\"'+"ChemIdConvertExport"+'.txt\">Result Download</a>')
+});
+</script>
+
+
+
+</body>
+</html>

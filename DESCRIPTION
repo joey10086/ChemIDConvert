@@ -1,0 +1,8 @@
+Package: ChemIDConvert
+Type: Package
+Title: ChemIDConvert Tool
+Version: 0.1.0
+Authors@R: person("Dinesh", "Barupal", email = "dinkumar@ucdavis.edu", role = c("aut", "cre"))
+Description: Convert different types of Identifiers for metabolomics or other chemical lists
+License: What license is it under?
+LazyData: TRUE
