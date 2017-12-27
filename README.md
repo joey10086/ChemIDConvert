@@ -16,3 +16,6 @@ library("opencpu")
 opencpu$browse('library/ChemIDCovnert/www') 
 ```
 
+# Other tools 
+
+[PubChem Identifiers exchange service] (https://pubchem.ncbi.nlm.nih.gov/idexchange/idexchange.cgi ) is an excellent online tool to convert chemical names and other identifiers  (KEGG etc) to another ones.
